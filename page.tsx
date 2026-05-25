@@ -1,142 +1,231 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function HomePage() {
-  const features = [
-    {
-      icon: "🧬",
-      title: "AI Medical Summaries",
-      desc: "Plain-language explanations of conditions, treatments, and recovery paths — no jargon, just clarity supporters can trust.",
-      color: "#00e5c8",
-    },
-    {
-      icon: "📊",
-      title: "Transparent Recovery Milestones",
-      desc: "Auto-generated care timelines that show supporters exactly how their contribution moves the patient forward, phase by phase.",
-      color: "#4fa8ff",
-    },
-    {
-      icon: "🪙",
-      title: "Tokenized Healthcare Support",
-      desc: "Every campaign is Swarms-compatible with full Frenzy Mode tokenization — supporters become stakeholders in recovery.",
-      color: "#f5c842",
-    },
-  ];
+interface FormState {
+  nickname: string;
+  age: string;
+  condition: string;
+  symptoms: string;
+  treatment: string;
+  fundingGoal: string;
+  notes: string;
+}
 
-  const steps = [
-    { n: "01", label: "Enter Patient Info", desc: "Nickname, age, condition, symptoms, and funding goal" },
-    { n: "02", label: "AI Generates Profile", desc: "GPT-4o creates a plain-language summary and milestone timeline" },
-    { n: "03", label: "Review Campaign", desc: "See the full recovery story, tokenization plan, and Swarms listing text" },
-    { n: "04", label: "Launch & Fund", desc: "Publish to Swarms Marketplace and activate Frenzy Mode" },
-  ];
+const INITIAL: FormState = {
+  nickname: "",
+  age: "",
+  condition: "",
+  symptoms: "",
+  treatment: "",
+  fundingGoal: "",
+  notes: "",
+};
+
+export default function CreatePage() {
+  const router = useRouter();
+  const [form, setForm] = useState<FormState>(INITIAL);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: keyof FormState) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit() {
+    const required: (keyof FormState)[] = [
+      "nickname", "age", "condition", "symptoms", "treatment", "fundingGoal",
+    ];
+    if (required.some((k) => !form[k].trim())) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/generate-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // Store result in sessionStorage so the results page can read it
+      sessionStorage.setItem("caretoken_result", JSON.stringify({ ...data, patientForm: form }));
+      router.push("/results");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      setError(`Failed to generate profile: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main className="relative z-10 max-w-5xl mx-auto px-6 pb-24">
-      {/* ── Hero ── */}
-      <section className="text-center pt-24 pb-16">
-        <div className="flex justify-center gap-3 mb-6">
-          <span className="tag">
-            <span className="glow-dot" />
-            Swarms Marketplace Compatible
-          </span>
-          <span className="tag tag-gold">⚡ Frenzy Mode</span>
-        </div>
-
-        <h1 className="syne text-5xl md:text-7xl font-extrabold leading-tight mb-6">
-          AI-powered healthcare funding
-          <br />
-          <span className="grad-text">through tokenization</span>
-        </h1>
-
-        <p className="text-muted text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-          Transform patient recovery stories into transparent, AI-generated campaigns that
-          supporters can understand, trust, and fund — all on the Swarms Marketplace.
-        </p>
-
-        <div className="flex gap-3 justify-center flex-wrap">
-          <Link href="/create" className="btn-primary text-base px-10 py-4">
-            Create Recovery Campaign →
-          </Link>
-          <Link href="/agent" className="btn-ghost text-base px-8 py-4">
-            View Agent Metadata
-          </Link>
-        </div>
-      </section>
-
-      {/* ── Stats bar ── */}
-      <div className="card grid grid-cols-2 md:grid-cols-4 divide-x divide-border mb-16 p-0 overflow-hidden">
-        {[
-          { value: "AI-Powered", label: "Campaign Generation" },
-          { value: "Swarms", label: "Marketplace Ready" },
-          { value: "Frenzy", label: "Mode Enabled" },
-          { value: "Zero", label: "Medical Jargon" },
-        ].map((s, i) => (
-          <div key={i} className="py-7 text-center">
-            <div
-              className="syne text-xl font-extrabold"
-              style={{ color: i % 2 === 0 ? "#00e5c8" : "#4fa8ff" }}
-            >
-              {s.value}
-            </div>
-            <div className="text-muted text-xs mt-1">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Feature cards ── */}
-      <div className="grid md:grid-cols-3 gap-5 mb-16">
-        {features.map((f, i) => (
-          <div key={i} className="card relative overflow-hidden">
-            <div
-              className="absolute top-[-30px] right-[-30px] w-24 h-24 rounded-full"
-              style={{
-                background: `radial-gradient(circle, ${f.color}20, transparent 70%)`,
-              }}
-            />
-            <div className="text-4xl mb-4">{f.icon}</div>
-            <h3 className="syne font-bold text-lg mb-2" style={{ color: f.color }}>
-              {f.title}
-            </h3>
-            <p className="text-muted text-sm leading-relaxed">{f.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── How it works ── */}
-      <div className="card p-10 mb-12">
-        <h2 className="syne text-2xl font-extrabold text-center mb-10">
-          How <span className="grad-text">CareToken</span> Works
-        </h2>
-        <div className="grid md:grid-cols-4 gap-8">
-          {steps.map((s, i) => (
-            <div key={i} className="text-center">
-              <div className="syne text-4xl font-extrabold text-border mb-2">{s.n}</div>
-              <div className="syne font-bold text-sm mb-2">{s.label}</div>
-              <div className="text-muted text-xs leading-relaxed">{s.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── CTA Banner ── */}
-      <div
-        className="rounded-2xl p-12 text-center"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(0,229,200,0.08), rgba(79,168,255,0.08))",
-          border: "1px solid rgba(0,229,200,0.18)",
-        }}
-      >
-        <h2 className="syne text-3xl font-extrabold mb-4">
-          Ready to tokenize a recovery campaign?
-        </h2>
-        <p className="text-muted mb-8 text-sm">
-          Fill out the form and your AI agent does the rest — medical summary, milestones, Swarms listing.
-        </p>
-        <Link href="/create" className="btn-primary text-base px-10 py-4">
-          Create Recovery Campaign →
+    <main className="relative z-10 max-w-2xl mx-auto px-6 pb-24">
+      {/* Header */}
+      <div className="pt-12 mb-8">
+        <Link href="/" className="btn-ghost text-xs px-3 py-2 inline-block mb-5">
+          ← Back
         </Link>
+        <span className="tag ml-3">Step 1 of 2</span>
+        <h1 className="syne text-4xl font-extrabold mt-4 mb-2">
+          Create Recovery <span className="grad-text">Campaign</span>
+        </h1>
+        <p className="text-muted text-sm leading-relaxed">
+          Your AI agent will generate a full campaign profile, milestone timeline,
+          and Swarms Marketplace listing.
+        </p>
+      </div>
+
+      {/* Form card */}
+      <div className="card space-y-5">
+        {/* Row: nickname + age */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label>
+              Patient Nickname <span className="text-pink-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.nickname}
+              onChange={set("nickname")}
+              placeholder="e.g. Alex"
+            />
+          </div>
+          <div>
+            <label>
+              Age <span className="text-pink-400">*</span>
+            </label>
+            <input
+              type="number"
+              value={form.age}
+              onChange={set("age")}
+              placeholder="e.g. 34"
+              min={0}
+              max={120}
+            />
+          </div>
+        </div>
+
+        {/* Condition */}
+        <div>
+          <label>
+            Condition / Diagnosis <span className="text-pink-400">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.condition}
+            onChange={set("condition")}
+            placeholder="e.g. Stage 2 Kidney Disease"
+          />
+        </div>
+
+        {/* Symptoms */}
+        <div>
+          <label>
+            Symptoms <span className="text-pink-400">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={form.symptoms}
+            onChange={set("symptoms")}
+            placeholder="e.g. Chronic fatigue, swelling, reduced kidney function"
+            style={{ resize: "vertical" }}
+          />
+        </div>
+
+        {/* Treatment */}
+        <div>
+          <label>
+            Treatment Needed <span className="text-pink-400">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={form.treatment}
+            onChange={set("treatment")}
+            placeholder="e.g. Dialysis 3x/week, potential transplant evaluation"
+            style={{ resize: "vertical" }}
+          />
+        </div>
+
+        {/* Funding Goal */}
+        <div>
+          <label>
+            Funding Goal (USD) <span className="text-pink-400">*</span>
+          </label>
+          <div className="relative">
+            <span
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+              style={{ pointerEvents: "none" }}
+            >
+              $
+            </span>
+            <input
+              type="number"
+              value={form.fundingGoal}
+              onChange={set("fundingGoal")}
+              placeholder="e.g. 45000"
+              style={{ paddingLeft: "1.75rem" }}
+              min={0}
+            />
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label>Additional Medical Notes (optional)</label>
+          <textarea
+            rows={3}
+            value={form.notes}
+            onChange={set("notes")}
+            placeholder="Any context, prior treatments, support already received..."
+            style={{ resize: "vertical" }}
+          />
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: "rgba(255,94,132,0.1)",
+              border: "1px solid rgba(255,94,132,0.3)",
+              color: "#ff5e84",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          className="btn-primary w-full text-base py-4 flex items-center justify-center gap-3"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <span className="spinner" />
+              Generating AI Profile…
+            </>
+          ) : (
+            "⚡ Generate AI Recovery Profile"
+          )}
+        </button>
+
+        <p className="text-center text-xs text-muted pt-1">
+          Powered by GPT-4o · No medical diagnosis will be made · Hopeful, supportive tone only
+        </p>
       </div>
     </main>
   );
